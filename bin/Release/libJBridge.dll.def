@@ -1,0 +1,6 @@
+EXPORTS
+    CallMethod @1
+    CallMultiReturnMethod @2
+    GetJVMSystemProperty @3
+    GetLastResult @4
+    InitDBConnection @5
