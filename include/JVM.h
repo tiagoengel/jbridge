@@ -1,9 +1,13 @@
 #ifndef JVM_H
 #define JVM_H
-#include <jni.h>
+#include "jni.h"
 #include <iostream>
 #include <windows.h>
 #include "../include/Utils.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string>
+#include <sys/stat.h>
 
 /**
  * Alguns dos possiveis erros na criação da JVM, os outros já estão definidos no jni.h;
@@ -16,25 +20,14 @@
 /**
  * Assinatura padrão para os metodos de criação de conexão e chamada de função do vision
  */
-#define VISION_SIGNATURE               "(Ljava/sql/Connection;[Ljava/lang/String;)Ljava/lang/Object;"
-#define VISION_MULTI_RETURN_SIGNATURE  "(Ljava/sql/Connection;[Ljava/lang/String;[Ljava/lang/Object;)V"
-#define CONNECTION_SIGNATURE           "([Ljava/lang/String;)Ljava/lang/Object;"
-#define SIMPLE_CALL_SIGNATURE          "(Ljava/lang/Class;Ljava/lang/String;Ljava/sql/Connection;[Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;"
-#define MULTI_CALL_SIGNATURE           "(Ljava/lang/Class;Ljava/sql/Connection;[Ljava/lang/String;)V"
+#define CALL_SIGNATURE          "(Ljava/lang/Class;Ljava/lang/String;[Ljava/lang/String;)Ljava/lang/Object;"
 
-#define CALLER_CLASS "com/toth/java/vision/util/FunctionCaller"
+#define DISPATCH_CLASS "com/jbridge/Dispatcher"
 
 //#define DEBUG_RUNTIME
 //#define DEBUG_MESSAGE
 
-#ifdef DEBUG_RUNTIME
-    #define CLASSPATH "-Djava.ext.dirs=E:\\Workspaces\\Java\\JNI_CALL"
-    #define JVMHOME   "C:\\Program Files (x86)\\Java\\jdk1.6.0_23\\jre\\bin\\client\\jvm.dll"
-#else
-    #define CLASSPATH "-Djava.ext.dirs=C:\\Systextil\\App\\Systex5\\shell"
-    #define JVMHOME   "C:\\Arquivos de programas\\Java\\jre6\\bin\\client\\jvm.dll"
-#endif
-
+#define DLL_PATH_VAR "SYSTEX5"
 
 #ifdef DEBUG_MESSAGE
     #define display(x)\
@@ -66,6 +59,14 @@ struct java_call
     jobjectArray callParameters;
 };
 
+/**
+ * Estrutura de propriedades do sistema
+ */
+struct SystemProperties {
+    const char* java_home;
+    const char* ext_dirs;
+};
+
 typedef jint (JNICALL *CreateJavaVM_t) (JavaVM**, void**, void*);
 typedef jint (JNICALL *GetCreatedJavaVMs)(JavaVM**, jsize, jsize *);
 typedef struct java_var*  pjava_var;
@@ -78,10 +79,7 @@ class JVM
         JVM();
         virtual ~JVM();
 
-        pjava_var CallMethod(const char* className, const char* methodName, char* param, const char* formatter) throw(string);
-        pjava_var CallMultiReturnMethod(const char* className, char* param) throw(string);
-        pjava_var GetLastResult(const char* attributeName, const char* formatter) throw(string);
-        int StartJavaConnection(const char* className, const char* methodName, char* param) throw(string);
+        pjava_var CallMethod(const char* className, const char* methodName, char* param) throw(string);
         static const char* getJNIErrorMessage(int);
         const char* getJVMSystemProperty(const char* propName);
 
@@ -95,8 +93,6 @@ class JVM
         JavaVMInitArgs    vm_args;
         JavaVMOption      options[1];
         Utils             *util;
-        jobject           CONNECTION;
-        jobjectArray      LAST_RESULTS; //For vision multi return functions
 
 
         JNIEnv* create_vm() throw(int);
@@ -104,8 +100,6 @@ class JVM
         const char* getClassName(jclass jClass) throw(string);
         const char* toString(jobject value);
         inline const char* getAsciiString(jstring arg);
-        void RedirectOutputs(jobject printStream);
-        void log(const char* level, jthrowable ex, const char* message);
         pjava_call prepareCall(const char* className, const char* methodName, char* param, const char* signature) throw(string);
 };
 

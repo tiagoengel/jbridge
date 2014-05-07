@@ -1,129 +1,58 @@
 # depslib dependency file v1.0
-1312992792 source:e:\codeblocks\jbridge\main.cpp
-	"main.h"
+1399422804 source:z:\desenv\c\jbridge\jbridge.cpp
+	"JBridge.h"
 	<Windows.h>
 
-1329698137 >
-
-1311316746 e:\codeblocks\jbridge\main.h
+1399423051 z:\desenv\c\jbridge\jbridge.h
 	<windows.h>
 	<iostream>
 	<vector>
 	<stdio.h>
 	<stdlib.h>
-	<jni.h>
+	"include/jni.h"
 	"include/Utils.h"
 	"include/JVM.h"
 
-1316535205 VM.h"
+1399397515 z:\desenv\c\jbridge\include\jni.h
+	<stdio.h>
+	<stdarg.h>
+	"jni_md.h"
 
-1311905719 source:e:\codeblocks\jbridge\src\utils.cpp
+1399397577 z:\desenv\c\jbridge\include\jni_md.h
+
+1399397601 z:\desenv\c\jbridge\include\utils.h
+	"jni.h"
+	<sstream>
+	<string>
+	<stdio.h>
+	<stdlib.h>
+	<windows.h>
+	<iostream>
+	<vector>
+
+1399424800 z:\desenv\c\jbridge\include\jvm.h
+	"jni.h"
+	<iostream>
+	<windows.h>
 	"../include/Utils.h"
-
-1341073620 e/Utils.h"
-
-1310768670 e:\codeblocks\jbridge\src\utils.h
-	<jni.h>
-	<sstream>
-	<string>
 	<stdio.h>
 	<stdlib.h>
-	<windows.h>
-	<iostream>
-	<vector>
-
-1311905164 
-
-1311905164 e:\codeblocks\jbridge\include\utils.h
-	<jni.h>
-	<sstream>
 	<string>
-	<stdio.h>
-	<stdlib.h>
-	<windows.h>
-	<iostream>
-	<vector>
+	<sys/stat.h>
 
-1319395487 source:e:\codeblocks\jbridge\src\jvm.cpp
+1399424519 source:z:\desenv\c\jbridge\src\jvm.cpp
 	"../include/JVM.h"
 	"../include/Property.h"
 
-1319395470 e/Property.h"
-
-1341073620 e:\codeblocks\jbridge\include\jvm.h
-	<jni.h>
-	<iostream>
-	<windows.h>
-	"../include/Utils.h"
-
-1319395470 source:e:\codeblocks\jbridge\src\property.cpp
-	"../include/Property.h"
-
-1312859185 e:\codeblocks\jbridge\include\property.h
+1398867153 z:\desenv\c\jbridge\include\property.h
 	<iostream>
 	<map>
 	<fstream>
 	<string.h>
 
-1312859185 
-
-1329698137 source:e:\codeblocks\jbridge\jbridge.cpp
-	"JBridge.h"
-	<Windows.h>
-
-1316535205 e:\codeblocks\jbridge\jbridge.h
-	<windows.h>
-	<iostream>
-	<vector>
-	<stdio.h>
-	<stdlib.h>
-	<jni.h>
-	"include/Utils.h"
-	"include/JVM.h"
-
-1329698137 source:/mnt/os_shared/desenv/c/CodeBlocks/JBridge/JBridge.cpp
-	"JBridge.h"
-	<Windows.h>
-
-1316535205 /mnt/os_shared/desenv/c/CodeBlocks/JBridge/JBridge.h
-	<windows.h>
-	<iostream>
-	<vector>
-	<stdio.h>
-	<stdlib.h>
-	<jni.h>
-	"include/Utils.h"
-	"include/JVM.h"
-
-1311905164 /mnt/os_shared/desenv/c/CodeBlocks/JBridge/include/Utils.h
-	<jni.h>
-	<sstream>
-	<string>
-	<stdio.h>
-	<stdlib.h>
-	<windows.h>
-	<iostream>
-	<vector>
-
-1341073620 /mnt/os_shared/desenv/c/CodeBlocks/JBridge/include/JVM.h
-	<jni.h>
-	<iostream>
-	<windows.h>
-	"../include/Utils.h"
-
-1319399087 source:/mnt/os_shared/desenv/c/CodeBlocks/JBridge/src/JVM.cpp
-	"../include/JVM.h"
+1398867215 source:z:\desenv\c\jbridge\src\property.cpp
 	"../include/Property.h"
 
-1312859185 /mnt/os_shared/desenv/c/CodeBlocks/JBridge/include/Property.h
-	<iostream>
-	<map>
-	<fstream>
-	<string.h>
-
-1319399070 source:/mnt/os_shared/desenv/c/CodeBlocks/JBridge/src/Property.cpp
-	"../include/Property.h"
-
-1311905719 source:/mnt/os_shared/desenv/c/CodeBlocks/JBridge/src/Utils.cpp
+1398867215 source:z:\desenv\c\jbridge\src\utils.cpp
 	"../include/Utils.h"
 

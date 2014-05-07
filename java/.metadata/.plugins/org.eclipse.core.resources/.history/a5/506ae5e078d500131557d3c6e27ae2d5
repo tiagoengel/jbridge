@@ -1,0 +1,212 @@
+package com.jbridge;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.sql.Connection;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.toth.java.vision.formatter.Formatable;
+import com.toth.java.vision.formatter.FormatterFactory;
+import com.toth.java.vision.model.*;
+
+public class Dispatcher {
+	
+	private static final String sepArgChar = "@";
+	private static Object lastResultObject;
+	
+	private static Map<String, Class<?>> classMap;
+	static {
+		classMap = new HashMap<String, Class<?>>();
+		classMap.put("STRING"   , String.class);
+		classMap.put("NUMERIC"  , Integer.class);
+		classMap.put("FLOAT"    , Double.class);
+		classMap.put("AMOUNT"   , Amount.class);
+		classMap.put("TIME"     , VisionTime.class);
+		classMap.put("DATE"     , VisionDate.class);
+		classMap.put("DATETIME" , VisionDateTime.class);
+		classMap.put("BOOL"     , Boolean.class);
+	}
+	
+	private static Map<Class<?>, Class<?>> primitiveMap;
+	static {
+		primitiveMap = new HashMap<Class<?>, Class<?>>();		
+		primitiveMap.put(int.class    , Integer.class);
+		primitiveMap.put(double.class , Double.class);
+		primitiveMap.put(char.class   , Character.class);
+		primitiveMap.put(float.class  , Float.class);
+		primitiveMap.put(long.class   , Long.class);
+		primitiveMap.put(byte.class   , Byte.class);
+		primitiveMap.put(boolean.class, Boolean.class);
+	}
+	
+	/**
+	 * Esse metodo converte os parametros para os seus tipos 
+	 * especificos, chama a funcao informada e formata o 
+	 * retorno 
+	 *
+	 * @param clazz a <code>Class<code> onde o metodo se encontra 
+	 * @param methodName o nome do metodo
+	 * @param conn a conexao com o banco, caso exista
+	 * @param args os parametros
+	 * @param formatter o formato do retorno
+	 * @return
+	 * @throws Throwable 
+	 */
+	public static Object dispatch(Class<?> classToCall, String methodName, Connection conn, String args[], String formatter) throws Exception {
+		
+		Object[] objArgs = getJavaArgs(args);	
+		Method method = findMethod(classToCall, methodName, objArgs);	
+		
+		Object ret = method.invoke((Modifier.isStatic(method.getModifiers()) ? classToCall : classToCall.newInstance()),objArgs);
+		
+		if (formatter != null && ret != null) {
+			Formatable f = FormatterFactory.getInstace(formatter);
+			
+			return f.format(ret);
+		}
+				
+		return null;
+	}
+	
+	/**
+	 * Esse metodo é responsável por chamar funções com mais de um retorno,
+	 * que nesse caso são objetos com atributos que são setados no construtor.
+	 * Para retornar o valor desses atributos é necessário chamar o metodo
+	 * <code>getLastResult<code> passando o nome do atributo desejado.
+	 * 
+	 * Importante, a cada chamada dessa função o atributo lastResultObject
+	 * é atualizado, logo, para obter valores corretos deve-se chamar
+	 * a função <code>getLastResult<code> pegando todos os atributos 
+	 * desejados antes de fazer outra chamada desta
+	 * 
+	 * @param classToCall
+	 * @param conn
+	 * @param args
+	 * @return
+	 * @throws Exception
+	 */
+	public static void callJavaMultiReturnFunction(Class<?> classToCall, Connection conn, String args[]) throws Exception {
+		
+		Object[] objArgs = getJavaArgs(new AppConnection(conn), args);	
+		Constructor<?> cons = findConstructor(classToCall, objArgs);
+		
+		lastResultObject = cons.newInstance(objArgs);
+		
+	}
+	
+	/**
+	 * Esse metodo retorna o valor do atributo passado como parametro
+	 * do ultimo objeto criado pela função <code>callJavaMultiReturnFunction<code>
+	 * 
+	 * @param atributeName nome do atributo na classe
+	 * @param formatter tipo de retorno
+	 * @return
+	 * @throws Exception
+	 */
+	
+	public static Object getLastResult(String attributeName, String formatter) throws Exception {
+		if (lastResultObject == null) return null;
+		
+		Field field = lastResultObject.getClass().getField(attributeName);
+		Object ret = field.get(lastResultObject);
+		if (ret != null) {
+			Formatable f = FormatterFactory.getInstace(formatter);
+			return f.format(ret);
+		}
+		return null;
+	}
+	
+	
+	
+	/********************************************************************************************
+	 *                                  P R I V A T E S                                         *
+	 *******************************************************************************************/                                                                                            	 
+	
+	private static Constructor<?> findConstructor(Class<?> clazz, Object[] args) throws Exception{
+		Constructor<?>[] constructors = clazz.getConstructors();
+		boolean isThis = false;
+		
+		for (Constructor<?> c : constructors) {											
+			Class<?>[] mArgs = c.getParameterTypes();
+			if (mArgs.length == args.length) {
+				isThis = true;
+				for (int i = 0; i < args.length; i++) {
+					if (!(mArgs[i].isPrimitive() ? primitiveMap.get(mArgs[i])
+							.isAssignableFrom(args[i].getClass()) 
+							: mArgs[i].isAssignableFrom(args[i].getClass())))
+						isThis = false;
+				}
+			}
+			if (isThis) return c;
+			
+		}
+		throw new NoSuchMethodException("O construtor "+clazz.getSimpleName()+"("+formatArgs(args)+") não foi encontrado");
+	}
+	
+	private static Method findMethod(Class<?> clazz, String methodName, Object[] args) throws Exception{
+		Method[] methods = clazz.getDeclaredMethods();
+		boolean isThis = false;
+		
+		for (Method m : methods) {
+			//System.out.println(m.getName()+" == "+methodName);						
+			if (m.getName().equals(methodName)) {				
+				Class<?>[] mArgs = m.getParameterTypes();
+				if (mArgs.length == args.length) {
+					isThis = true;
+					for (int i = 0; i < args.length; i++) {
+						if (!(mArgs[i].isPrimitive() ? primitiveMap.get(mArgs[i])
+								.isAssignableFrom(args[i].getClass()) 
+								: mArgs[i].isAssignableFrom(args[i].getClass())))
+							isThis = false;
+					}
+				}
+				if (isThis) return m;
+			}
+		}
+		throw new NoSuchMethodException("O metodo "+methodName+"("+formatArgs(args)+") não foi encontrado");
+	}
+	
+	private static Object[] getJavaArgs(String args[]) throws Exception {
+		Object[] retorno = new Object[args.length)];
+		Class<?> clazz = null;
+		String value = null;
+		for (int i = 0; i < args.length; i++) {
+			clazz = classMap.get(args[i].substring(0, args[i].indexOf(sepArgChar)));
+			value = args[i].substring(args[i].indexOf(sepArgChar) + 1, args[i].length());
+			retorno[i] = castToType(clazz, value);
+		}
+		return retorno;
+	}
+	
+	private static Object castToType(Class<?> type, String value) throws Exception{
+		if (type == String.class)              return value;
+		else if (type == Integer.class)        return Integer.parseInt(value);
+		else if (type == Double.class)     	   return Double.parseDouble(value);
+		else if (type == Amount.class)   	   return Amount.toAmount(Double.parseDouble(value));
+		else if (type == VisionDate.class)     return new VisionDate(value);
+		else if (type == VisionDateTime.class) return new VisionDateTime(value);
+		else if (type == VisionTime.class)     return new VisionTime(value);
+		
+		else throw new IllegalArgumentException("Tipo "+(type != null ? type.getSimpleName() +  " não suportado" : "não encontrado"));
+	}
+	
+	private static String formatArgs(Object[] args) {
+		StringBuilder sB = new StringBuilder();
+		for (int i=0; i<args.length; i++) {
+			if (i == args.length - 1)
+				sB.append(args[i].getClass().getName());
+			else 
+				sB.append(args[i].getClass().getName()+", ");
+		}
+		
+		return sB.toString();
+	}
+	
+	public static void main(String[] args) {
+		System.out.println(String.format("%06d", 1));
+	}
+	
+}

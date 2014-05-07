@@ -1,7 +1,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#include <jni.h>
+#include "jni.h"
 #include <sstream>
 #include <string>
 #include <stdio.h>

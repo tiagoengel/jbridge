@@ -1,23 +1,85 @@
 #include "../include/JVM.h"
 #include "../include/Property.h"
 
+int exist(const char *name)
+{
+  struct stat   buffer;
+  return (stat (name, &buffer) == 0);
+}
+
+string normalize(string str) {
+    for (int i = 0; i < str.length(); ++i) {
+        if (str[i] == '\\')
+            str[i] = '/';
+    }
+    return str;
+}
+
+const char* InitSystemProperties(SystemProperties *props) {
+   char   psBuffer[1000];
+   FILE   *chkdsk;
+
+   string sysFolder = getenv("SystemRoot");
+   sysFolder = normalize(sysFolder + "/SysWOW64/");
+
+   if (!getenv(DLL_PATH_VAR)) {
+        string error = "Não foi possível encontrar a váriavel de ambiente ";
+        error = error + DLL_PATH_VAR;
+        error = error+", não será possível iniciar a JVM";
+        return error.c_str();
+   }
+
+   string systextilHome = getenv(DLL_PATH_VAR);
+   string javaExe = normalize(sysFolder + "java.exe");
+
+   if (!exist(javaExe.c_str())) {
+    javaExe = "java.exe";
+   }
+   systextilHome = normalize(systextilHome);
+   string cmd = javaExe + " -cp "+systextilHome+"/shell/jbridge.jar com.jbridge.JavaHome";
+
+   if( (chkdsk = _popen( cmd.c_str(), "rt" )) == NULL ) {
+      return "Não foi possível encontrar a instalação do JAVA no WINDOWS desse computador";
+   }
+
+   fgets( psBuffer, sizeof(psBuffer), chkdsk );
+   if (_pclose( chkdsk ) != 0) {
+      return "Não foi possível encontrar a instalação do JAVA no WINDOWS desse computador";
+   }
+
+   string extDir = systextilHome + "/shell";
+
+   //Remove o ultimo caracter, que é uma quebra de linha
+   psBuffer[strlen(psBuffer) - 1] = '\0';
+   props->java_home = psBuffer;
+   props->ext_dirs = ("-Djava.ext.dirs="+extDir).c_str();
+   return NULL;
+}
+
+
 JVM::JVM()
 {
     util = new Utils();
-//    Property* prop;
-//    try {
-//        prop = new Property("E:/CodeBlocks/JBridge/jbridge.properties", "");
-//        prop->load();
-//    } catch (string e) {
-//        printf("Failed to load configuration file %s\n", e.c_str());
-//    }
-
-
-
-    //hVM = LoadLibrary(util->getProperty("CONFIG", "jvm.path"));
-    hVM = LoadLibrary(JVMHOME);
-    if (hVM == NULL)
+    SystemProperties props;
+    const char* error = InitSystemProperties(&props);
+    if (error) {
+        MessageBox(NULL, error, "Fatal Error", MB_OK);
         throw (JNI_DLL_NOT_FOUND);
+    }
+
+    string jvmDll = props.java_home;
+    jvmDll = jvmDll + "/bin/client/jvm.dll";
+    jvmDll = normalize(jvmDll);
+    hVM = LoadLibrary(jvmDll.c_str());
+    if (hVM == NULL) {
+        printf(jvmDll.c_str());
+        printf("\n%d", jvmDll.length());
+        MessageBox(NULL, jvmDll.c_str(), "Fatal Error", MB_OK);
+        throw (JNI_DLL_NOT_FOUND);
+    }
+
+    //C:/Arquivos de programas/Java/jre6
+//bin/client/jvm.dll
 
     pGetCreatedJavaVMs = (GetCreatedJavaVMs)GetProcAddress(hVM, "JNI_GetCreatedJavaVMs");
     if (pGetCreatedJavaVMs == NULL)
@@ -27,9 +89,10 @@ JVM::JVM()
 	if (pCreateJavaVM_t == NULL)
 		throw (JNI_CREATE);
 
-	//options[0].optionString = (strcat("-Djava.ext.dirs=", util->getProperty("CONFIG", "java.ext.dirs")));
-	const char* cPath = CLASSPATH;//prop->getProperty("java.ext.dirs").c_str();
-	options[0].optionString = (char*)(cPath);//static_cast<char*>(CLASSPATH);
+    ;
+    printf("%s\n", props.ext_dirs);
+	const char* cPath = props.ext_dirs;
+	options[0].optionString = (char*)(cPath);
 	//options[1].optionString = "-Xcheck:jni";
 	//options[1].optionString = "-verbose:jni";
 	vm_args.version = JNI_VERSION_1_6;
@@ -38,7 +101,6 @@ JVM::JVM()
     vm_args.ignoreUnrecognized = 0;
     //fflush()
 
-    CONNECTION = NULL;
     jvm = NULL;
     env = NULL;
 
@@ -53,81 +115,6 @@ JVM::~JVM()
 
     if (hVM)
         FreeLibrary(hVM);
-}
-
-void JVM::RedirectOutputs(jobject printStream)
-{
-    jclass sysClass;
-    jmethodID setErr;
-    jmethodID setOut;
-
-    if ((sysClass = env->FindClass("java/lang/System")))
-    {
-
-
-        if (!env->ExceptionCheck())
-        {
-            setErr = env->GetStaticMethodID(sysClass, "setErr", "(Ljava/io/PrintStream;)V");
-            setOut = env->GetStaticMethodID(sysClass, "setOut", "(Ljava/io/PrintStream;)V");
-            if (setErr && setOut)
-            {
-                env->CallStaticVoidMethod(sysClass, setErr, printStream);
-                env->CallStaticVoidMethod(sysClass, setOut, printStream);
-            }
-        }
-
-    }
-
-    if (env->ExceptionCheck())
-        env->ExceptionDescribe();
-}
-
-void JVM::log(const char* level, jthrowable ex, const char* message)
-{
-    jclass loggerClass = NULL; // = env->FindClass("java/util/logging/Logger");
-    jclass levelClass = NULL;
-    jfieldID levelField = NULL;
-    jobject objLevel = NULL;
-    jobject logger = NULL;
-    jmethodID getLogger = NULL;
-    jmethodID log = NULL;
-    jstring sMessage = NULL;
-
-    env->ExceptionClear();
-
-    if ((loggerClass = env->FindClass("java/util/logging/Logger")))
-        if ((levelClass = env->FindClass("java/util/logging/Level")))
-            if ((getLogger = env->GetStaticMethodID(loggerClass, "getLogger", "(Ljava/lang/String;)Ljava/util/logging/Logger;")))
-                if ((levelField = env->GetStaticFieldID(levelClass, level, "Ljava/util/logging/Level;")))
-                    if ((objLevel = env->GetStaticObjectField(levelClass, levelField)))
-                        if ((logger = env->CallStaticObjectMethod(loggerClass, getLogger, env->NewStringUTF("JBRIDGE LOG"))))
-                        {
-                            sMessage = env->NewStringUTF(message);
-                            if (ex != NULL)
-                            {
-                                if ((log = env->GetMethodID(loggerClass, "log", "(Ljava/util/logging/Level;Ljava/lang/String;Ljava/lang/Throwable;)V")))
-                                {
-                                    env->CallVoidMethod(logger, log, objLevel, sMessage, ex);
-                                }
-                            }
-                            else
-                            {
-                                if ((log = env->GetMethodID(loggerClass, "log", "(Ljava/util/logging/Level;Ljava/lang/String;)V")))
-                                {
-                                    env->CallVoidMethod(logger, log, objLevel, sMessage);
-                                }
-                            }
-
-                            //env->DeleteLocalRef(objLevel);
-                            //env->DeleteLocalRef(logger);
-                            env->DeleteLocalRef(sMessage);
-                        }
-
-    if (env->ExceptionCheck())
-    {
-        env->ExceptionDescribe();
-        env->ExceptionClear();
-    }
 }
 
 /**
@@ -247,7 +234,7 @@ inline string JVM::getExceptionMessage()
         env->ExceptionClear();
 
         display("save log...");
-        jclass c = env->FindClass("com/toth/java/vision/util/ExceptionPrinter");
+        jclass c = env->FindClass("com/jbridge/ExceptionPrinter");
         jmethodID mId = env->GetStaticMethodID(c, "print", "(Ljava/lang/Throwable;)V");
         env->CallStaticVoidMethod(c,mId,exc);
 
@@ -324,18 +311,18 @@ pjava_call JVM::prepareCall(const char* className, const char* methodName, char*
  * @throw string
  */
 
-pjava_var JVM::CallMethod(const char* className, const char* methodName, char* param, const char* formatter) throw(string)
+pjava_var JVM::CallMethod(const char* className, const char* methodName, char* param) throw(string)
 {
     display("initialize...");
     pjava_var retorno = (pjava_var)malloc(sizeof(pjava_var*));
     try { env = create_vm();}
     catch (int ex) {throw(string(JVM::getJNIErrorMessage(ex)));}
 
-    jclass clazz = env->FindClass(CALLER_CLASS);
+    jclass clazz = env->FindClass(DISPATCH_CLASS);
 	if (clazz == NULL)
         throw (getExceptionMessage());
 
-	jmethodID mID = env->GetStaticMethodID( clazz, "callJavaFunction", SIMPLE_CALL_SIGNATURE);
+	jmethodID mID = env->GetStaticMethodID( clazz, "dispatch", CALL_SIGNATURE);
 	if (mID == NULL)
 		throw (getExceptionMessage());
 
@@ -368,11 +355,9 @@ pjava_var JVM::CallMethod(const char* className, const char* methodName, char* p
         throw (getExceptionMessage());
 
     jstring sMethod = env->NewStringUTF(methodName);
-    jstring sFormatter = (formatter != NULL ? env->NewStringUTF(formatter) : NULL);
     display("calling method...");
-    jobject ret = env->CallStaticObjectMethod(clazz, mID, classToCall, sMethod, CONNECTION, args, sFormatter);
+    jobject ret = env->CallStaticObjectMethod(clazz, mID, classToCall, sMethod, args);
     env->DeleteLocalRef(sMethod);
-    env->DeleteLocalRef(sFormatter);
 	display("successful call");
 	env->DeleteLocalRef(args);
 	//free(jcall);
@@ -408,111 +393,6 @@ pjava_var JVM::CallMethod(const char* className, const char* methodName, char* p
 	return retorno;
 }
 
-
-/**
- * Tem a mesma funcionalidade do metodo CallMethod, com a diferença
- * que irá passar uma referencia global a um jobjectarray
- * para gravar os resultados da função.
- * Deve ser usada em funções com mais de um retorno.
- *
- * @param const char* className o nome da classe java
- * @param const char* methodName o nome do metodo java
- * @param const char* param os parametros passados
- * @param int results a quantidade de resultados
- * @return pjava_var ponteiro para um struct java_var, que representa uma variavel Java
- * @throw string
- */
-pjava_var JVM::CallMultiReturnMethod(const char* className, char* param) throw(string)
-{
-    pjava_var retorno = (pjava_var)malloc(sizeof(pjava_var*));
-    display("initialize...");
-    try { env = create_vm();}
-    catch (int ex) {throw(string(JVM::getJNIErrorMessage(ex)));}
-
-    jclass clazz = env->FindClass(CALLER_CLASS);
-	if (clazz == NULL)
-        throw (getExceptionMessage());
-
-	jmethodID mID = env->GetStaticMethodID(clazz, "callJavaMultiReturnFunction", MULTI_CALL_SIGNATURE);
-	if (mID == NULL)
-		throw (getExceptionMessage());
-
-    //log("INFO",NULL,"Method loaded, parameters splitting...");
-	jclass objClass = env->FindClass( "java/lang/Object");
-
-    string s(param);
-    vector<string> sParam = util->split(s, ';');
-    jobjectArray args = env->NewObjectArray(sParam.size(),objClass, NULL);
-
-    unsigned int i;
-    for (i=0;i<sParam.size();i++)
-    {
-        jobject objt = env->NewStringUTF(sParam[i].c_str());
-        env->SetObjectArrayElement(args, i, objt);
-
-        env->DeleteLocalRef( objt);
-    }
-
-    if (env->ExceptionCheck())
-        throw (getExceptionMessage());
-
-    display("Call...");
-	env->CallStaticVoidMethod(clazz, mID, env->FindClass(className), CONNECTION, args);
-    display("Sucesfull Call!");
-	env->DeleteLocalRef(args);
-	//free(jcall);
-	//env->CallVoidMethod(printStream, close);
-	display("Check Exceptions...");
-    if (env->ExceptionCheck())
-    {
-        throw (getExceptionMessage());
-    }
-
-    retorno->type  = "MultiReturn";
-    retorno->value = "";
-
-    jvm->DetachCurrentThread();
-    free(env);
-	return retorno;
-}
-
-pjava_var JVM::GetLastResult(const char* attributeName, const char* formatter) throw(string)
-{
-    pjava_var retorno = (pjava_var)malloc(sizeof(pjava_var*));
-    display("get last result...");
-    try { env = create_vm();}
-    catch (int ex) {throw(string(JVM::getJNIErrorMessage(ex)));}
-
-    jclass clazz = env->FindClass(CALLER_CLASS);
-    if (clazz == NULL)
-        throw (getExceptionMessage());
-
-    jmethodID mID = env->GetStaticMethodID(clazz, "getLastResult", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;");
-    if (mID == NULL)
-        throw (getExceptionMessage());
-
-    display("Call...");
-    jobject ret = env->CallStaticObjectMethod(clazz, mID, env->NewStringUTF(attributeName), env->NewStringUTF(formatter));
-    display("Suscessful call!");
-    display("Check Exceptions!");
-    if (env->ExceptionCheck())
-        throw (getExceptionMessage());
-
-    jclass retClass = env->GetObjectClass(ret);
-    retorno->type = getClassName(retClass);
-    retorno->value = toString(ret);
-
-    env->DeleteLocalRef(ret);
-
-	if (env->ExceptionCheck())
-        throw (getExceptionMessage());
-    //TODO: Verificar a memória, provavelmente está com lixo.
-    jvm->DetachCurrentThread();
-    free(env);
-	return retorno;
-
-}
-
 inline const char* JVM::getAsciiString(jstring str)
 {
     if (str == NULL || !str) return "";
@@ -537,59 +417,6 @@ inline const char* JVM::getAsciiString(jstring str)
     }
     //display("return");
     return ret;
-}
-
-/**
- * Cria um objeto de conexão com algum banco de dados e grava na variavel CONNECTION
- * @param const char* className o nome da classe java
- * @param const char* methodName o nome do metodo java
- * @param const char* param os parametros passados
- * @return int 0 sucesso ou -1 erro
- * @throw string
- */
-int JVM::StartJavaConnection(const char* className, const char* methodName, char* param) throw(string)
-{
-    try { env = create_vm(); }
-    catch (int ex) { throw(string(JVM::getJNIErrorMessage(ex))); }
-
-    jclass clazz = env->FindClass( className);
-	if (clazz == NULL)
-        throw (getExceptionMessage());
-
-	jmethodID mID = env->GetStaticMethodID(clazz, methodName, CONNECTION_SIGNATURE);
-	if (mID == NULL)
-		throw (getExceptionMessage());
-
-	jclass objClass = env->FindClass( "java/lang/Object");
-
-    string s(param);
-    vector<string> sParam = util->split(s, ';');
-    jobjectArray args = env->NewObjectArray(sParam.size(),objClass, NULL);
-
-    unsigned int i;
-    for (i=0;i<sParam.size();i++)
-    {
-        jobject objt = env->NewStringUTF(sParam[i].c_str());
-        env->SetObjectArrayElement(args, i, objt);
-
-        env->DeleteLocalRef( objt);
-    }
-
-    jobject ret = env->CallStaticObjectMethod(clazz, mID, args);
-	env->DeleteLocalRef(args);
-
-	if (env->ExceptionCheck())
-		throw(getExceptionMessage());
-
-    if (ret == NULL)
-        return -1;
-
-    CONNECTION = env->NewGlobalRef(ret);
-    env->DeleteLocalRef( ret);
-    //TODO: Verificar a memória, provavelmente está com lixo.
-    jvm->DetachCurrentThread();
-    free(env);
-	return 0;
 }
 
 const char* JVM::getJVMSystemProperty(const char* propName)

@@ -1,0 +1,3 @@
+EXPORTS
+    CallMethod @1
+    GetJVMSystemProperty @2
