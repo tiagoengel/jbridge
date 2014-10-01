@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1399422804 source:z:\desenv\c\jbridge\jbridge.cpp
+1399642738 source:z:\desenv\c\jbridge\jbridge.cpp
 	"JBridge.h"
 	<Windows.h>
 
@@ -20,7 +20,7 @@
 
 1399397577 z:\desenv\c\jbridge\include\jni_md.h
 
-1399397601 z:\desenv\c\jbridge\include\utils.h
+1412194972 z:\desenv\c\jbridge\include\utils.h
 	"jni.h"
 	<sstream>
 	<string>
@@ -29,8 +29,9 @@
 	<windows.h>
 	<iostream>
 	<vector>
+	<sys/stat.h>
 
-1399424800 z:\desenv\c\jbridge\include\jvm.h
+1412194266 z:\desenv\c\jbridge\include\jvm.h
 	"jni.h"
 	<iostream>
 	<windows.h>
@@ -38,9 +39,8 @@
 	<stdio.h>
 	<stdlib.h>
 	<string>
-	<sys/stat.h>
 
-1399424519 source:z:\desenv\c\jbridge\src\jvm.cpp
+1412194134 source:z:\desenv\c\jbridge\src\jvm.cpp
 	"../include/JVM.h"
 	"../include/Property.h"
 
@@ -53,6 +53,6 @@
 1398867215 source:z:\desenv\c\jbridge\src\property.cpp
 	"../include/Property.h"
 
-1398867215 source:z:\desenv\c\jbridge\src\utils.cpp
+1412194381 source:z:\desenv\c\jbridge\src\utils.cpp
 	"../include/Utils.h"
 

@@ -1,11 +1,28 @@
 package com.jbridge;
 
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.FileHandler;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 public class Dispatcher {
+	
+	private static final Logger log = Logger.getLogger("Dispatcher");
+	static {
+		try {
+			FileHandler handler = new FileHandler(System.getProperty("java.io.tmpdir")+"/dispacher.log");
+			handler.setFormatter(new SimpleFormatter());
+			log.addHandler(handler);
+		} catch (IOException e) {
+			e.printStackTrace();
+		} 
+		
+	}
 	
 	private static final String sepArgChar = "@";
 	private static Map<String, Class<?>> classMap;
@@ -30,6 +47,10 @@ public class Dispatcher {
 		primitiveMap.put(boolean.class, Boolean.class);
 	}
 	
+	public static void main(String[] args) throws ClassNotFoundException, Exception {
+		Dispatcher.dispatch(Class.forName("java.lang.Math"), "random", new String[]{});
+	}
+	
 	/**
 	 * Esse metodo converte os parametros para os seus tipos 
 	 * especificos, chama a funcao informada e formata o 
@@ -44,7 +65,7 @@ public class Dispatcher {
 	 * @throws Throwable 
 	 */
 	public static Object dispatch(Class<?> classToCall, String methodName, String args[]) throws Exception {
-		
+		log.info(classToCall.getName()+"."+methodName+Arrays.toString(args));
 		Object[] objArgs = getJavaArgs(args);	
 		Method method = findMethod(classToCall, methodName, objArgs);	
 		

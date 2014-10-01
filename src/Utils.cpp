@@ -29,6 +29,73 @@ vector<string> Utils::split(string s, char delim)
 	return tokens;
 }
 
+int Utils::exist(const char *name)
+{
+    struct stat   buffer;
+    return (stat (name, &buffer) == 0);
+}
+
+string Utils::normalize(string str) {
+    for (int i = 0; i < str.length(); ++i) {
+        if (str[i] == '\\')
+            str[i] = '/';
+    }
+    return str;
+}
+
+string Utils::getJavaHome() throw (string) {
+     char psBuffer[1000];
+     FILE *chkdsk;
+
+     string appPath = getPathApp();
+
+     if (exist((appPath+"/../../Programas/Java/jre1.6.0_10").c_str()))
+        return appPath+"/../../Programas/Java/jre1.6.0_10";
+
+     if (exist((appPath+"../../Programas/Java/jdk1.6.0_10").c_str()))
+        return appPath+"../../Programas/Java/jdk1.6.0_10";
+
+     if (!getenv("JAVA_HOME")) {
+        string javaExe = "java.exe";
+        string cmd = javaExe + " -cp "+appPath+"/shell/jbridge.jar com.jbridge.JavaHome";
+
+        if( (chkdsk = _popen( cmd.c_str(), "rt" )) == NULL ) {
+          throw "Não foi possível encontrar a instalação do JAVA no WINDOWS desse computador";
+        }
+
+        fgets( psBuffer, sizeof(psBuffer), chkdsk );
+        if (_pclose( chkdsk ) != 0) {
+          throw "Não foi possível encontrar a instalação do JAVA no WINDOWS desse computador";
+        }
+
+        psBuffer[strlen(psBuffer) - 1] = '\0';
+        return (string) psBuffer;
+
+    } else {
+        string java_home = getenv("JAVA_HOME");
+        java_home = normalize(java_home);
+        if (exist((java_home+"/jre").c_str())) {
+            java_home = java_home+"/jre";
+        }
+        return java_home;
+    }
+}
+
+string Utils::getExtDirs() throw (string) {
+    return "-Djava.ext.dirs="+ getPathApp() + "/shell";
+}
+
+string Utils::getPathApp() throw (string) {
+    if (!getenv(DLL_PATH_VAR)) {
+        string error = "Não foi possível encontrar a váriavel de ambiente ";
+        error = error + DLL_PATH_VAR;
+        error = error+", não será possível iniciar a JVM";
+        throw error;
+    }
+
+    return normalize(getenv(DLL_PATH_VAR));
+}
+
 
 /**
  *

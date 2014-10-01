@@ -1,86 +1,40 @@
 #include "../include/JVM.h"
 #include "../include/Property.h"
 
-int exist(const char *name)
-{
-  struct stat   buffer;
-  return (stat (name, &buffer) == 0);
-}
-
-string normalize(string str) {
-    for (int i = 0; i < str.length(); ++i) {
-        if (str[i] == '\\')
-            str[i] = '/';
-    }
-    return str;
-}
-
-const char* InitSystemProperties(SystemProperties *props) {
-   char   psBuffer[1000];
-   FILE   *chkdsk;
-
-   string sysFolder = getenv("SystemRoot");
-   sysFolder = normalize(sysFolder + "/SysWOW64/");
-
-   if (!getenv(DLL_PATH_VAR)) {
-        string error = "Não foi possível encontrar a váriavel de ambiente ";
-        error = error + DLL_PATH_VAR;
-        error = error+", não será possível iniciar a JVM";
-        return error.c_str();
-   }
-
-   string systextilHome = getenv(DLL_PATH_VAR);
-   string javaExe = normalize(sysFolder + "java.exe");
-
-   if (!exist(javaExe.c_str())) {
-    javaExe = "java.exe";
-   }
-   systextilHome = normalize(systextilHome);
-   string cmd = javaExe + " -cp "+systextilHome+"/shell/jbridge.jar com.jbridge.JavaHome";
-
-   if( (chkdsk = _popen( cmd.c_str(), "rt" )) == NULL ) {
-      return "Não foi possível encontrar a instalação do JAVA no WINDOWS desse computador";
-   }
-
-   fgets( psBuffer, sizeof(psBuffer), chkdsk );
-   if (_pclose( chkdsk ) != 0) {
-      return "Não foi possível encontrar a instalação do JAVA no WINDOWS desse computador";
-   }
-
-   string extDir = systextilHome + "/shell";
-
-   //Remove o ultimo caracter, que é uma quebra de linha
-   psBuffer[strlen(psBuffer) - 1] = '\0';
-   props->java_home = psBuffer;
-   props->ext_dirs = ("-Djava.ext.dirs="+extDir).c_str();
-   return NULL;
-}
-
-
 JVM::JVM()
 {
     util = new Utils();
-    SystemProperties props;
-    const char* error = InitSystemProperties(&props);
-    if (error) {
-        MessageBox(NULL, error, "Fatal Error", MB_OK);
-        throw (JNI_DLL_NOT_FOUND);
-    }
 
-    string jvmDll = props.java_home;
-    jvmDll = jvmDll + "/bin/client/jvm.dll";
-    jvmDll = normalize(jvmDll);
+    string ext_dirs = util->getExtDirs();
+    string java_home = util->getJavaHome();
+
+    string jvmDll = java_home + "/bin/client/jvm.dll";
+    if (!util->exist(jvmDll.c_str())) {
+        jvmDll = java_home + "/bin/server/jvm.dll";
+    }
+    display(jvmDll.c_str());
+    display(util->exist(jvmDll.c_str()) == 1 ? "Existe" : "Não existe");
+    //jvmDll = util->normalize(jvmDll);
     hVM = LoadLibrary(jvmDll.c_str());
     if (hVM == NULL) {
-        printf(jvmDll.c_str());
-        printf("\n%d", jvmDll.length());
-        MessageBox(NULL, jvmDll.c_str(), "Fatal Error", MB_OK);
+        DWORD dwErrorCode = GetLastError();
+        LPTSTR lpErrorText = NULL;
+
+        FormatMessage(
+            FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER,
+            0, dwErrorCode, 0, lpErrorText, MAX_PATH, 0
+        );
+
+        char *msg = (char*)malloc(10);
+        sprintf(msg, "%d", dwErrorCode);
+
+        MessageBox(NULL, msg, "Fatal Error", MB_OK);
+        MessageBox(NULL, lpErrorText, "Fatal Error", MB_OK);
+        MessageBox(NULL, ("'"+jvmDll+"'").c_str(), "Fatal Error", MB_OK);
+        free(msg);
         throw (JNI_DLL_NOT_FOUND);
     }
-
-    //C:/Arquivos de programas/Java/jre6
-//bin/client/jvm.dll
-
+    display("JVM carregada");
     pGetCreatedJavaVMs = (GetCreatedJavaVMs)GetProcAddress(hVM, "JNI_GetCreatedJavaVMs");
     if (pGetCreatedJavaVMs == NULL)
         throw (JNI_GET_CREATED);
@@ -89,10 +43,11 @@ JVM::JVM()
 	if (pCreateJavaVM_t == NULL)
 		throw (JNI_CREATE);
 
-    ;
-    printf("%s\n", props.ext_dirs);
-	const char* cPath = props.ext_dirs;
+
+    display(ext_dirs.c_str());
+	const char* cPath = ext_dirs.c_str();
 	options[0].optionString = (char*)(cPath);
+
 	//options[1].optionString = "-Xcheck:jni";
 	//options[1].optionString = "-verbose:jni";
 	vm_args.version = JNI_VERSION_1_6;
@@ -103,8 +58,6 @@ JVM::JVM()
 
     jvm = NULL;
     env = NULL;
-
-
 }
 
 JVM::~JVM()
@@ -137,8 +90,9 @@ JNIEnv* JVM::create_vm() throw(int)
     {
         jni_error = jvm->AttachCurrentThread((void**) &env, NULL);
 
-        if (jni_error < 0)
+        if (jni_error < 0) {
             throw (jni_error);
+        }
 
         return env;
     }
@@ -229,7 +183,7 @@ inline string JVM::getExceptionMessage()
 		string excMessage(getAsciiString(message));
 
 		display("format message...");
-		string result = className+": "+excMessage;
+		string result = excMessage;
 		//Need to be here
         env->ExceptionClear();
 
@@ -249,52 +203,6 @@ inline string JVM::getExceptionMessage()
 
 	return "";
 }
-
-pjava_call JVM::prepareCall(const char* className, const char* methodName, char* param, const char* signature) throw(string)
-{
-    //USANDO ESSA CHAMADA TA DANDO SHUTDOWN NO VISION. NÃO SEI PORQUE
-
-    if (env == NULL)
-        throw(string("Exception in JVM.cpp:\n\tJava Enviroment NULL(JVM::prepareCall)"));
-
-    printf("Start prepare call..\n");
-    pjava_call jcall = (pjava_call)malloc(sizeof(pjava_call*));
-
-    jclass clazz = env->FindClass( className);
-	if (clazz == NULL)
-        throw (getExceptionMessage());
-
-	jmethodID mID = env->GetStaticMethodID( clazz, methodName, signature);
-	if (mID == NULL)
-		throw (getExceptionMessage());
-
-    //log("INFO",NULL,"Method loaded, parameters splitting...");
-	jclass objClass = env->FindClass( "java/lang/Object");
-
-    string s(param);
-    vector<string> sParam = util->split(s, ';');
-    jobjectArray args = env->NewObjectArray(sParam.size(),objClass, NULL);
-
-    unsigned int i;
-    for (i=0;i<sParam.size();i++)
-    {
-        jobject objt = env->NewStringUTF(sParam[i].c_str());
-        env->SetObjectArrayElement(args, i, objt);
-
-        env->DeleteLocalRef( objt);
-    }
-
-    if (env->ExceptionCheck())
-        throw (getExceptionMessage());
-
-    jcall->callClazz      = clazz;
-    jcall->callMethodId   = mID;
-    jcall->callParameters = args;
-
-    printf("Finish prepare call..\n");
-    return jcall;
-}
-
 
 /**
  * Chama uma função java a partir dos parametros passados.

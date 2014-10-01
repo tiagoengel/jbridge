@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
-#include <sys/stat.h>
 
 /**
  * Alguns dos possiveis erros na criação da JVM, os outros já estão definidos no jni.h;
@@ -23,19 +22,6 @@
 #define CALL_SIGNATURE          "(Ljava/lang/Class;Ljava/lang/String;[Ljava/lang/String;)Ljava/lang/Object;"
 
 #define DISPATCH_CLASS "com/jbridge/Dispatcher"
-
-//#define DEBUG_RUNTIME
-//#define DEBUG_MESSAGE
-
-#define DLL_PATH_VAR "SYSTEX5"
-
-#ifdef DEBUG_MESSAGE
-    #define display(x)\
-    MessageBox(NULL, x, "Debug", MB_OK)
-#else
-    #define display(x)\
-    printf("%s\n",x)
-#endif
 
 /**
  * Estrutura de retono de uma função java.
@@ -59,14 +45,6 @@ struct java_call
     jobjectArray callParameters;
 };
 
-/**
- * Estrutura de propriedades do sistema
- */
-struct SystemProperties {
-    const char* java_home;
-    const char* ext_dirs;
-};
-
 typedef jint (JNICALL *CreateJavaVM_t) (JavaVM**, void**, void*);
 typedef jint (JNICALL *GetCreatedJavaVMs)(JavaVM**, jsize, jsize *);
 typedef struct java_var*  pjava_var;
@@ -87,6 +65,8 @@ class JVM
     private:
         JNIEnv            *env;
         JavaVM            *jvm;
+        string            dllPath;
+        string            extDirs;
         HINSTANCE         hVM;
         CreateJavaVM_t    pCreateJavaVM_t;
         GetCreatedJavaVMs pGetCreatedJavaVMs;

@@ -52,15 +52,14 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
             break;
 
         case DLL_PROCESS_DETACH:
-                delete jvm;
+            delete jvm;
             break;
 
         case DLL_THREAD_ATTACH:
-            // attach to thread
+            //printf("Using JVM version:%s\n", jvm->getJVMSystemProperty("java.version"));
             break;
-
         case DLL_THREAD_DETACH:
-            // detach from thread
+
             break;
     }
     return TRUE; // succesful
