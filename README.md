@@ -19,6 +19,6 @@ p_CallMethod = (pCallMethod)GetProcAddress(myDll, "CallMethod");
 Then you can call any static method in your classpath
 ```c	
 pjava_var ret = p_CallMethod("java/lang/Math", "ceil", "Double@1.5");
-printf('%s', retorno->type); //Integer;
-printf('%s', retorno->value); //2;
+printf("%s", retorno->type); //Integer;
+printf("%s", retorno->value); //2;
 ```
