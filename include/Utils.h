@@ -10,6 +10,7 @@
 #include <iostream>
 #include <vector>
 #include <sys/stat.h>
+#include "Logger.h"
 
 #define DLL_PATH_VAR "SYSTEX5"
 
@@ -24,8 +25,9 @@
     printf("%s\n",x)
 #endif
 
-using namespace std;
+static Logger log = Logger::getLogger();
 
+using namespace std;
 
 class Utils
 {

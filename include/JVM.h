@@ -74,7 +74,6 @@ class JVM
         JavaVMOption      options[1];
         Utils             *util;
 
-
         JNIEnv* create_vm() throw(int);
         inline string getExceptionMessage();
         const char* getClassName(jclass jClass) throw(string);

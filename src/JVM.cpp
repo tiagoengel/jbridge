@@ -1,50 +1,42 @@
 #include "../include/JVM.h"
 #include "../include/Property.h"
+#include "../include/Logger.h"
 
 JVM::JVM()
 {
     util = new Utils();
 
+    log.info("Trying to load ext dirs...");
     string ext_dirs = util->getExtDirs();
+    log.info("Trying to load JAVA HOME...");
     string java_home = util->getJavaHome();
 
     string jvmDll = java_home + "/bin/client/jvm.dll";
     if (!util->exist(jvmDll.c_str())) {
         jvmDll = java_home + "/bin/server/jvm.dll";
     }
-    display(jvmDll.c_str());
-    display(util->exist(jvmDll.c_str()) == 1 ? "Existe" : "Não existe");
-    //jvmDll = util->normalize(jvmDll);
+    log.infof("System properties:\n\nJAVA_HOME=%s\n%s\n\n", java_home.c_str(), ext_dirs.c_str());
+    log.infof("Using jvm file: %s", jvmDll.c_str());
+    log.infof("File %s", (util->exist(jvmDll.c_str()) == 1 ? "exists" : "not exists"));
     hVM = LoadLibrary(jvmDll.c_str());
     if (hVM == NULL) {
-        DWORD dwErrorCode = GetLastError();
-        LPTSTR lpErrorText = NULL;
-
-        FormatMessage(
-            FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER,
-            0, dwErrorCode, 0, lpErrorText, MAX_PATH, 0
-        );
-
-        char *msg = (char*)malloc(10);
-        sprintf(msg, "%d", dwErrorCode);
-
-        MessageBox(NULL, msg, "Fatal Error", MB_OK);
-        MessageBox(NULL, lpErrorText, "Fatal Error", MB_OK);
-        MessageBox(NULL, ("'"+jvmDll+"'").c_str(), "Fatal Error", MB_OK);
-        free(msg);
+        log.errorf("Unable to load jvm.dll. Error code: %d", GetLastError());
         throw (JNI_DLL_NOT_FOUND);
     }
-    display("JVM carregada");
+
+    log.info("JVM successfully loaded");
     pGetCreatedJavaVMs = (GetCreatedJavaVMs)GetProcAddress(hVM, "JNI_GetCreatedJavaVMs");
-    if (pGetCreatedJavaVMs == NULL)
+    if (pGetCreatedJavaVMs == NULL) {
+        log.errorf("Unable to find method 'JNI_GetCreatedJavaVMs' in jvm.dll. Error code: %d", GetLastError());
         throw (JNI_GET_CREATED);
+    }
 
     pCreateJavaVM_t = (CreateJavaVM_t)GetProcAddress(hVM, "JNI_CreateJavaVM");
-	if (pCreateJavaVM_t == NULL)
+	if (pCreateJavaVM_t == NULL) {
+        log.errorf("Unable to find method 'JNI_CreateJavaVM' in jvm.dll. Error code: %d", GetLastError());
 		throw (JNI_CREATE);
+	}
 
-
-    display(ext_dirs.c_str());
 	const char* cPath = ext_dirs.c_str();
 	options[0].optionString = (char*)(cPath);
 
@@ -54,7 +46,6 @@ JVM::JVM()
     vm_args.nOptions = 1; //Numero de parametros passados (JavaVMOption)
     vm_args.options = options;
     vm_args.ignoreUnrecognized = 0;
-    //fflush()
 
     jvm = NULL;
     env = NULL;
@@ -85,9 +76,11 @@ JNIEnv* JVM::create_vm() throw(int)
     JNIEnv *env;
     jvm = NULL;
 
+    log.info("Creating JVM");
     int jni_error = pGetCreatedJavaVMs(&jvm, 1, NULL);
     if (jvm != NULL)
     {
+        log.info("Found and existing instance, attaching...");
         jni_error = jvm->AttachCurrentThread((void**) &env, NULL);
 
         if (jni_error < 0) {
@@ -151,43 +144,37 @@ const char* JVM::getClassName(jclass jClass) throw(string)
 
 inline string JVM::getExceptionMessage()
 {
-    display("formating exception...");
     jthrowable excAux = env->ExceptionOccurred();
     if (excAux) {
-        display("initialize...");
+        log.info("Trying to get last exception message...");
         jclass excclsAux = env->GetObjectClass( excAux);
         jclass invocationTargetException = env->FindClass("java/lang/reflect/InvocationTargetException");
         jclass exccls = NULL;
         jthrowable exc = NULL;
         jstring message = NULL; //This is VERY VERY important!!!
 
-        display("check invocationTargetException...");
         if (env->IsInstanceOf(excAux, invocationTargetException)) {
-            display("true");
+            log.info("Found an InvocationTargetException");
             jmethodID getTargetException = env->GetMethodID(excclsAux, "getTargetException", "()Ljava/lang/Throwable;");
             exc = static_cast<jthrowable>(env->CallObjectMethod(excAux, getTargetException));
             exccls = env->GetObjectClass(exc);
         } else {
-           display("false");
            exccls = excclsAux;
            exc = excAux;
         }
-        display("get message...");
+        log.info("Calling method 'getMessage'");
         jmethodID getMessage = env->GetMethodID( exccls, "getMessage", "()Ljava/lang/String;");
         message = (jstring)(env->CallObjectMethod( exc, getMessage));
-        display("get exception class...");
 		string className = getClassName(exccls);
-		//char* ret;
-		//env->ExceptionDescribe();
-		//toAscii(message, ret);
+
 		string excMessage(getAsciiString(message));
 
-		display("format message...");
+
 		string result = excMessage;
-		//Need to be here
+
         env->ExceptionClear();
 
-        display("save log...");
+        log.info("Printing exception...");
         jclass c = env->FindClass("com/jbridge/ExceptionPrinter");
         jmethodID mId = env->GetStaticMethodID(c, "print", "(Ljava/lang/Throwable;)V");
         env->CallStaticVoidMethod(c,mId,exc);
@@ -221,7 +208,7 @@ inline string JVM::getExceptionMessage()
 
 pjava_var JVM::CallMethod(const char* className, const char* methodName, char* param) throw(string)
 {
-    display("initialize...");
+    log.infof("JVM::CallMethod(%s, %s, %s)", className, methodName, param);
     pjava_var retorno = (pjava_var)malloc(sizeof(pjava_var*));
     try { env = create_vm();}
     catch (int ex) {throw(string(JVM::getJNIErrorMessage(ex)));}
@@ -237,8 +224,6 @@ pjava_var JVM::CallMethod(const char* className, const char* methodName, char* p
     //log("INFO",NULL,"Method loaded, parameters splitting...");
 	jclass objClass = env->FindClass( "java/lang/Object");
 
-    display("spliting parameters");
-    display(param);
     string s(param);
     vector<string> sParam = util->split(s, ';');
     jobjectArray args = env->NewObjectArray(sParam.size(),objClass, NULL);
@@ -263,31 +248,24 @@ pjava_var JVM::CallMethod(const char* className, const char* methodName, char* p
         throw (getExceptionMessage());
 
     jstring sMethod = env->NewStringUTF(methodName);
-    display("calling method...");
+    log.info("Calling Java method...");
     jobject ret = env->CallStaticObjectMethod(clazz, mID, classToCall, sMethod, args);
     env->DeleteLocalRef(sMethod);
-	display("successful call");
+	log.info("Method successfully called");
 	env->DeleteLocalRef(args);
-	//free(jcall);
-	//env->CallVoidMethod(printStream, close);
 
     if (env->ExceptionCheck()) {
-        //env->ExceptionDescribe();
         throw (getExceptionMessage());
     }
-    //log("INFO",NULL,"Returning values..");
-
-    display("check null return...");
 
 	if (ret == NULL) {
-	    //env->ExceptionClear();
 	    jvm->DetachCurrentThread();
 	    free(env);
 	    free(retorno);
 	    return NULL;
 	}
 
-    display("format return...");
+    log.info("Formating result");
 
     jclass retClass = env->GetObjectClass(ret);
     retorno->type = getClassName(retClass);
@@ -305,25 +283,22 @@ inline const char* JVM::getAsciiString(jstring str)
 {
     if (str == NULL || !str) return "";
 
-    display("transalate utf to ascii...");
+    log.info("transalate utf to ascii...");
 
     int tam = env->GetStringLength(str);
     char* ret = (char *) malloc(tam + 1);
 
     if (ret != NULL)
     {
-        //display("get unicode char...");
         const jchar* unicode = env->GetStringChars(str, NULL);
         int i;
-        //display("mount unicode char...");
+
         for (i=0;i<tam;i++)
             ret[i] = unicode[i];
 
         ret[i] = '\0';
-        //display("free mem...");
         env->ReleaseStringChars(str, unicode);
     }
-    //display("return");
     return ret;
 }
 

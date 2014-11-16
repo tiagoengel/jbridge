@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1399642738 source:z:\desenv\c\jbridge\jbridge.cpp
+1412296730 source:z:\desenv\c\jbridge\jbridge.cpp
 	"JBridge.h"
 	<Windows.h>
 
@@ -20,7 +20,7 @@
 
 1399397577 z:\desenv\c\jbridge\include\jni_md.h
 
-1412194972 z:\desenv\c\jbridge\include\utils.h
+1412294666 z:\desenv\c\jbridge\include\utils.h
 	"jni.h"
 	<sstream>
 	<string>
@@ -30,8 +30,9 @@
 	<iostream>
 	<vector>
 	<sys/stat.h>
+	"Logger.h"
 
-1412194266 z:\desenv\c\jbridge\include\jvm.h
+1412294024 z:\desenv\c\jbridge\include\jvm.h
 	"jni.h"
 	<iostream>
 	<windows.h>
@@ -40,9 +41,10 @@
 	<stdlib.h>
 	<string>
 
-1412194134 source:z:\desenv\c\jbridge\src\jvm.cpp
+1412294954 source:z:\desenv\c\jbridge\src\jvm.cpp
 	"../include/JVM.h"
 	"../include/Property.h"
+	"../include/Logger.h"
 
 1398867153 z:\desenv\c\jbridge\include\property.h
 	<iostream>
@@ -53,6 +55,19 @@
 1398867215 source:z:\desenv\c\jbridge\src\property.cpp
 	"../include/Property.h"
 
-1412194381 source:z:\desenv\c\jbridge\src\utils.cpp
+1412294493 source:z:\desenv\c\jbridge\src\utils.cpp
 	"../include/Utils.h"
+
+1412295703 source:z:\desenv\c\jbridge\src\logger.cpp
+	"Logger.h"
+
+1412297309 z:\desenv\c\jbridge\include\logger.h
+	<cstdarg>
+	<time.h>
+	<sstream>
+	<string>
+	<stdio.h>
+	<stdlib.h>
+	<windows.h>
+	<iostream>
 

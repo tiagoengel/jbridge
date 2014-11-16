@@ -7,8 +7,10 @@ JVM* jvm;
 
 pjava_var DLL_EXPORT CallMethod (const char* className, const char* methodName, char* param)
 {
-    if (jvm == NULL)
+    if (jvm == NULL) {
+        log.info("JVM not created, returning NULL");
         return NULL;
+    }
 
     pjava_var retorno = (pjava_var)malloc(sizeof(pjava_var*));
     try
@@ -38,6 +40,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
     switch (fdwReason)
     {
         case DLL_PROCESS_ATTACH:
+            log.clean();
+            log.info("JBridge.dll attached. Trying to create a JVM...");
             try
             {
             	jvm = new JVM();
@@ -48,6 +52,11 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
                 string desc = "Erro ao Criar JVM:\n   ->"+err;
             	MessageBox(NULL, desc.c_str(), "Erro Fatal", MB_ICONERROR);
             	jvm = NULL;
+            }
+            catch (string e)
+            {
+                MessageBox(NULL, e.c_str(), "Erro Fatal", MB_ICONERROR);
+                jvm = NULL;
             }
             break;
 
