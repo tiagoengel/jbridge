@@ -43,6 +43,13 @@ string Utils::normalize(string str) {
     return str;
 }
 
+string Utils::getEnvVar(const char* key) {
+    const char * val = getenv(key);
+    bool isEmpty = val == NULL || strcmp(val, "") == 0 || strcmp(val, "\"\"") == 0;
+
+    return isEmpty ? string() : string(val);
+}
+
 string Utils::getJavaHome() throw (string) {
      char psBuffer[1000];
      FILE *chkdsk;
@@ -55,7 +62,9 @@ string Utils::getJavaHome() throw (string) {
      if (exist((appPath+"../../Programas/Java/jdk1.6.0_10").c_str()))
         return appPath+"../../Programas/Java/jdk1.6.0_10";
 
-     if (!getenv("JAVA_HOME")) {
+     string java_home = getEnvVar("JAVA_HOME");
+
+     if (java_home.empty()) {
         string javaExe = "java.exe";
         string cmd = javaExe + " -cp "+appPath+"/shell/jbridge.jar com.jbridge.JavaHome";
 
@@ -69,10 +78,11 @@ string Utils::getJavaHome() throw (string) {
         }
 
         psBuffer[strlen(psBuffer) - 1] = '\0';
-        return (string) psBuffer;
+        string jhome(psBuffer);
+        return normalize(jhome);
 
     } else {
-        string java_home = getenv("JAVA_HOME");
+        string java_home = getEnvVar("JAVA_HOME");
         java_home = normalize(java_home);
         if (exist((java_home+"/jre").c_str())) {
             java_home = java_home+"/jre";
@@ -82,18 +92,19 @@ string Utils::getJavaHome() throw (string) {
 }
 
 string Utils::getExtDirs() throw (string) {
-    return "-Djava.ext.dirs="+ getPathApp() + "/shell";
+    return string("-Djava.ext.dirs="+ getPathApp() + "/shell");
 }
 
 string Utils::getPathApp() throw (string) {
-    if (!getenv(DLL_PATH_VAR)) {
+    string appPath = getEnvVar(DLL_PATH_VAR);
+    if (appPath.empty()) {
         string error = "Não foi possível encontrar a váriavel de ambiente ";
         error = error + DLL_PATH_VAR;
         error = error+", não será possível iniciar a JVM";
         throw error;
     }
-
-    return normalize(getenv(DLL_PATH_VAR));
+   // printf(gappPath.c_str());
+    return normalize(appPath);
 }
 
 

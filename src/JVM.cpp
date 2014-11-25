@@ -15,7 +15,11 @@ JVM::JVM()
     if (!util->exist(jvmDll.c_str())) {
         jvmDll = java_home + "/bin/server/jvm.dll";
     }
-    log.infof("System properties:\n\nJAVA_HOME=%s\n%s\n\n", java_home.c_str(), ext_dirs.c_str());
+
+    //Put this java in the start of the PATH to avoid 'Unknown errors'
+    putenv(("PATH="+java_home+"/bin;"+util->getEnvVar("PATH")).c_str());
+
+    log.infof("System properties:\n\nJAVA_HOME=%s\n%s\nPATH=%s\n\n", java_home.c_str(), ext_dirs.c_str(), util->getEnvVar("PATH").c_str());
     log.infof("Using jvm file: %s", jvmDll.c_str());
     log.infof("File %s", (util->exist(jvmDll.c_str()) == 1 ? "exists" : "not exists"));
     hVM = LoadLibrary(jvmDll.c_str());
@@ -37,8 +41,10 @@ JVM::JVM()
 		throw (JNI_CREATE);
 	}
 
-	const char* cPath = ext_dirs.c_str();
-	options[0].optionString = (char*)(cPath);
+	char* cPath = (char*) malloc(sizeof(char) * strlen(ext_dirs.c_str()) + 1);
+	sprintf(cPath, "%s", ext_dirs.c_str());
+
+	options[0].optionString = cPath;
 
 	//options[1].optionString = "-Xcheck:jni";
 	//options[1].optionString = "-verbose:jni";
@@ -76,11 +82,11 @@ JNIEnv* JVM::create_vm() throw(int)
     JNIEnv *env;
     jvm = NULL;
 
-    log.info("Creating JVM");
+    log.info("Creating JVM...");
     int jni_error = pGetCreatedJavaVMs(&jvm, 1, NULL);
     if (jvm != NULL)
     {
-        log.info("Found and existing instance, attaching...");
+        log.info("Found and existing instance, attaching current thread...");
         jni_error = jvm->AttachCurrentThread((void**) &env, NULL);
 
         if (jni_error < 0) {
@@ -90,8 +96,10 @@ JNIEnv* JVM::create_vm() throw(int)
         return env;
     }
     jni_error = pCreateJavaVM_t(&jvm, (void**)&env, &vm_args);
-    if(jni_error < 0)
+    if(jni_error < 0) {
+        log.errorf("Unable to create JVM. JNI ERROR: %d. WINDOWS LAST ERROR: %d", jni_error, GetLastError());
         throw (jni_error);
+    }
 
     return env;
 }

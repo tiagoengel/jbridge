@@ -43,6 +43,7 @@ class Utils
         string getExtDirs() throw (string);
         string normalize(string str);
         string getPathApp() throw (string);
+        string getEnvVar(const char* key);
         int exist(const char*);
 
     protected:
